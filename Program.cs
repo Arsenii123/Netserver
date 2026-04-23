@@ -1,16 +1,18 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.IO;
 using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Npgsql;
 
 class Program
 {
     static readonly ConcurrentDictionary<string, DateTime> Clients = new();
-    static string MessagesFile = "chat.json";
+
+    // строка подключения к PostgreSQL
+    static string ConnString = "Host=localhost;Username=postgres;Password=123;Database=chat";
 
     static async Task Main()
     {
@@ -77,7 +79,7 @@ class Program
         AddSystemMessage(sysMsg);
         Console.WriteLine($"[+] {sysMsg}. Усього клієнтів: {Clients.Count}");
 
-        int fromIndex = LoadMessages().Count;
+        int fromIndex = GetMessageCount();
         await WriteJson(res, new { clientId = id, fromIndex });
     }
 
@@ -136,10 +138,8 @@ class Program
         Clients[clientId] = DateTime.UtcNow;
         int from = int.TryParse(fromStr, out int f) ? f : 0;
 
-        var all = LoadMessages();
-        from = Math.Max(0, Math.Min(from, all.Count));
-        var newMessages = all.GetRange(from, all.Count - from);
-        int nextFrom = all.Count;
+        var newMessages = LoadMessages(from);
+        int nextFrom = from + newMessages.Count;
 
         await WriteJson(res, new { messages = newMessages, nextFrom });
     }
@@ -162,7 +162,7 @@ class Program
         }
     }
 
-    // --- Работа с сообщениями ---
+    // --- Работа с сообщениями через PostgreSQL ---
     static void AddMessage(string clientId, string text)
     {
         var msg = new ChatMessage { From = clientId, Text = text, IsSystem = false };
@@ -177,15 +177,41 @@ class Program
 
     static void SaveMessage(ChatMessage msg)
     {
-        var all = LoadMessages();
-        all.Add(msg);
-        File.WriteAllText(MessagesFile, JsonSerializer.Serialize(all));
+        using var con = new NpgsqlConnection(ConnString);
+        con.Open();
+        using var cmd = new NpgsqlCommand("INSERT INTO messages (sender, text, isSystem) VALUES (@s, @t, @i)", con);
+        cmd.Parameters.AddWithValue("s", msg.From);
+        cmd.Parameters.AddWithValue("t", msg.Text);
+        cmd.Parameters.AddWithValue("i", msg.IsSystem);
+        cmd.ExecuteNonQuery();
     }
 
-    static List<ChatMessage> LoadMessages()
+    static List<ChatMessage> LoadMessages(int from)
     {
-        if (!File.Exists(MessagesFile)) return new List<ChatMessage>();
-        return JsonSerializer.Deserialize<List<ChatMessage>>(File.ReadAllText(MessagesFile)) ?? new List<ChatMessage>();
+        using var con = new NpgsqlConnection(ConnString);
+        con.Open();
+        using var cmd = new NpgsqlCommand("SELECT id, sender, text, isSystem FROM messages WHERE id > @f ORDER BY id", con);
+        cmd.Parameters.AddWithValue("f", from);
+        using var reader = cmd.ExecuteReader();
+
+        var list = new List<ChatMessage>();
+        while (reader.Read())
+        {
+            list.Add(new ChatMessage {
+                From = reader.GetString(1),
+                Text = reader.GetString(2),
+                IsSystem = reader.GetBoolean(3)
+            });
+        }
+        return list;
+    }
+
+    static int GetMessageCount()
+    {
+        using var con = new NpgsqlConnection(ConnString);
+        con.Open();
+        using var cmd = new NpgsqlCommand("SELECT COUNT(*) FROM messages", con);
+        return Convert.ToInt32(cmd.ExecuteScalar());
     }
 
     // --- Вспомогательные методы ---
@@ -215,4 +241,6 @@ class ChatMessage
 
 class ConnectRequest { public string? ClientId { get; set; } }
 class SendRequest    { public string? ClientId { get; set; } public string? Text { get; set; } }
+
+
 

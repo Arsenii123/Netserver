@@ -9,12 +9,8 @@ using System.Threading.Tasks;
 
 class Program
 {
-    // Всі повідомлення чату (індекс = ID повідомлення)
-    static readonly List<ChatMessage> Messages = new();
-    static readonly object MessagesLock = new();
-
-    // Підключені клієнти: clientId -> час останнього запиту
     static readonly ConcurrentDictionary<string, DateTime> Clients = new();
+    static string MessagesFile = "chat.json";
 
     static async Task Main()
     {
@@ -32,7 +28,6 @@ class Program
         Console.WriteLine("  GET  /poll?clientId=&from= -> отримати нові повідомлення");
         Console.WriteLine();
 
-        // Фонове завдання: прибираємо клієнтів, які давно не опитували сервер
         _ = Task.Run(CleanupLoop);
 
         while (true)
@@ -53,9 +48,9 @@ class Program
             string path = req.Url?.AbsolutePath ?? "/";
 
             if      (req.HttpMethod == "POST" && path == "/connect")    await HandleConnect(req, res);
-            else if (req.HttpMethod == "POST" && path == "/disconnect")  await HandleDisconnect(req, res);
-            else if (req.HttpMethod == "POST" && path == "/send")        await HandleSend(req, res);
-            else if (req.HttpMethod == "GET"  && path == "/poll")        await HandlePoll(req, res);
+            else if (req.HttpMethod == "POST" && path == "/disconnect") await HandleDisconnect(req, res);
+            else if (req.HttpMethod == "POST" && path == "/send")       await HandleSend(req, res);
+            else if (req.HttpMethod == "GET"  && path == "/poll")       await HandlePoll(req, res);
             else
             {
                 res.StatusCode = 404;
@@ -71,7 +66,6 @@ class Program
     }
 
     // POST /connect
-    // Body: { "clientId": "abc" }
     static async Task HandleConnect(HttpListenerRequest req, HttpListenerResponse res)
     {
         var body = await ReadJson<ConnectRequest>(req);
@@ -83,15 +77,11 @@ class Program
         AddSystemMessage(sysMsg);
         Console.WriteLine($"[+] {sysMsg}. Усього клієнтів: {Clients.Count}");
 
-        // Повертаємо ID та поточний індекс, щоб клієнт не читав старі повідомлення
-        int fromIndex;
-        lock (MessagesLock) fromIndex = Messages.Count;
-
+        int fromIndex = LoadMessages().Count;
         await WriteJson(res, new { clientId = id, fromIndex });
     }
 
     // POST /disconnect
-    // Body: { "clientId": "abc" }
     static async Task HandleDisconnect(HttpListenerRequest req, HttpListenerResponse res)
     {
         var body = await ReadJson<ConnectRequest>(req);
@@ -105,7 +95,6 @@ class Program
     }
 
     // POST /send
-    // Body: { "clientId": "abc", "text": "Привіт!" }
     static async Task HandleSend(HttpListenerRequest req, HttpListenerResponse res)
     {
         var body = await ReadJson<SendRequest>(req);
@@ -131,8 +120,7 @@ class Program
         await WriteJson(res, new { ok = true });
     }
 
-    // GET /poll?clientId=abc&from=5
-    // Повертає всі повідомлення починаючи з індексу from
+    // GET /poll
     static async Task HandlePoll(HttpListenerRequest req, HttpListenerResponse res)
     {
         string? clientId = req.QueryString["clientId"];
@@ -146,22 +134,16 @@ class Program
         }
 
         Clients[clientId] = DateTime.UtcNow;
-
         int from = int.TryParse(fromStr, out int f) ? f : 0;
 
-        List<ChatMessage> newMessages;
-        int nextFrom;
-        lock (MessagesLock)
-        {
-            from        = Math.Max(0, Math.Min(from, Messages.Count));
-            newMessages = Messages.GetRange(from, Messages.Count - from);
-            nextFrom    = Messages.Count;
-        }
+        var all = LoadMessages();
+        from = Math.Max(0, Math.Min(from, all.Count));
+        var newMessages = all.GetRange(from, all.Count - from);
+        int nextFrom = all.Count;
 
         await WriteJson(res, new { messages = newMessages, nextFrom });
     }
 
-    // Прибираємо клієнтів, які не опитували сервер довше 15 секунд
     static async Task CleanupLoop()
     {
         while (true)
@@ -180,18 +162,33 @@ class Program
         }
     }
 
+    // --- Работа с сообщениями ---
     static void AddMessage(string clientId, string text)
     {
-        lock (MessagesLock)
-            Messages.Add(new ChatMessage { From = clientId, Text = text, IsSystem = false });
+        var msg = new ChatMessage { From = clientId, Text = text, IsSystem = false };
+        SaveMessage(msg);
     }
 
     static void AddSystemMessage(string text)
     {
-        lock (MessagesLock)
-            Messages.Add(new ChatMessage { From = "server", Text = text, IsSystem = true });
+        var msg = new ChatMessage { From = "server", Text = text, IsSystem = true };
+        SaveMessage(msg);
     }
 
+    static void SaveMessage(ChatMessage msg)
+    {
+        var all = LoadMessages();
+        all.Add(msg);
+        File.WriteAllText(MessagesFile, JsonSerializer.Serialize(all));
+    }
+
+    static List<ChatMessage> LoadMessages()
+    {
+        if (!File.Exists(MessagesFile)) return new List<ChatMessage>();
+        return JsonSerializer.Deserialize<List<ChatMessage>>(File.ReadAllText(MessagesFile)) ?? new List<ChatMessage>();
+    }
+
+    // --- Вспомогательные методы ---
     static async Task WriteJson(HttpListenerResponse res, object obj)
     {
         var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(obj));
@@ -218,3 +215,4 @@ class ChatMessage
 
 class ConnectRequest { public string? ClientId { get; set; } }
 class SendRequest    { public string? ClientId { get; set; } public string? Text { get; set; } }
+

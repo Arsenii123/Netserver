@@ -14,8 +14,6 @@ class Program
     // строка подключения к PostgreSQL
     static string ConnString = Environment.GetEnvironmentVariable("DB_CONN")!;
 
-
-
     static async Task Main()
     {
         string port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
@@ -74,10 +72,19 @@ class Program
     {
         var body = await ReadJson<ConnectRequest>(req);
         string id = body?.ClientId ?? Guid.NewGuid().ToString("N")[..8];
+        string name = body?.Name ?? "unknown";
 
         Clients[id] = DateTime.UtcNow;
 
-        string sysMsg = $"Клієнт {id} приєднався до чату";
+        // збереження клієнта в таблицю clients
+        using var con = new NpgsqlConnection(ConnString);
+        con.Open();
+        using var cmd = new NpgsqlCommand("INSERT INTO clients (id, name, connectedAt) VALUES (@i, @n, NOW())", con);
+        cmd.Parameters.AddWithValue("i", id);
+        cmd.Parameters.AddWithValue("n", name);
+        cmd.ExecuteNonQuery();
+
+        string sysMsg = $"Клієнт {name} ({id}) приєднався до чату";
         AddSystemMessage(sysMsg);
         Console.WriteLine($"[+] {sysMsg}. Усього клієнтів: {Clients.Count}");
 
@@ -242,6 +249,15 @@ class ChatMessage
     public bool IsSystem { get; set; }
 }
 
-class ConnectRequest { public string? ClientId { get; set; } }
-class SendRequest { public string? ClientId { get; set; } public string? Text { get; set; } }
+class ConnectRequest
+{
+    public string? ClientId { get; set; }
+    public string? Name { get; set; }
+}
+
+class SendRequest
+{
+    public string? ClientId { get; set; }
+    public string? Text { get; set; }
+}
 

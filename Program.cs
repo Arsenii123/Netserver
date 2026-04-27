@@ -126,7 +126,7 @@ class Program
 
         Clients[body.ClientId] = DateTime.UtcNow;
         AddMessage(body.ClientId, body.Text);
-        Console.WriteLine($"[{body.ClientId}]: {body.Text}");
+        Console.WriteLine($"[{GetClientName(body.ClientId) ?? body.ClientId}]: {body.Text}");
 
         await WriteJson(res, new { ok = true });
     }
@@ -174,7 +174,8 @@ class Program
     // --- Работа с сообщениями через PostgreSQL ---
     static void AddMessage(string clientId, string text)
     {
-        var msg = new ChatMessage { From = clientId, Text = text, IsSystem = false };
+        string name = GetClientName(clientId) ?? clientId;
+        var msg = new ChatMessage { From = name, Text = text, IsSystem = false };
         SaveMessage(msg);
     }
 
@@ -240,6 +241,16 @@ class Program
         return JsonSerializer.Deserialize<T>(json,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
     }
+
+  static string? GetClientName(string clientId)
+    {
+        using var con = new NpgsqlConnection(ConnString);
+        con.Open();
+        using var cmd = new NpgsqlCommand("SELECT name FROM clients WHERE id = @i", con);
+        cmd.Parameters.AddWithValue("i", clientId);
+        var result = cmd.ExecuteScalar();
+        return result == DBNull.Value ? null : result as string;
+  }
 }
 
 class ChatMessage
@@ -260,4 +271,5 @@ class SendRequest
     public string? ClientId { get; set; }
     public string? Text { get; set; }
 }
+
 

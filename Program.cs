@@ -12,7 +12,8 @@ class Program
     static readonly ConcurrentDictionary<string, DateTime> Clients = new();
 
     // строка подключения к PostgreSQL
-    static string ConnString = "Host=localhost;Username=postgres;Password=123;Database=chat";
+    static string ConnString = "Host=localhost;Port=5432;Username=postgres;Password=123;Database=chat;Encoding=UTF8";
+
 
     static async Task Main()
     {

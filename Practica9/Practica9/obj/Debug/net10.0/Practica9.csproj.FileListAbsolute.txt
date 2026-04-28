@@ -1,0 +1,14 @@
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\bin\Debug\net10.0\Practica9.exe
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\bin\Debug\net10.0\Practica9.deps.json
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\bin\Debug\net10.0\Practica9.runtimeconfig.json
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\bin\Debug\net10.0\Practica9.dll
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\bin\Debug\net10.0\Practica9.pdb
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\obj\Debug\net10.0\Practica9.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\obj\Debug\net10.0\Practica9.AssemblyInfoInputs.cache
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\obj\Debug\net10.0\Practica9.AssemblyInfo.cs
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\obj\Debug\net10.0\Practica9.csproj.CoreCompileInputs.cache
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\obj\Debug\net10.0\Practica9.dll
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\obj\Debug\net10.0\refint\Practica9.dll
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\obj\Debug\net10.0\Practica9.pdb
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\obj\Debug\net10.0\Practica9.genruntimeconfig.cache
+C:\Users\PC\OneDrive\Desktop\Networkprogramming\Practica9\Practica9\obj\Debug\net10.0\ref\Practica9.dll
